@@ -1,0 +1,774 @@
+openapi: 3.1.0
+info:
+  title: Canvas API Enhanced for Study Buddy
+  description: >
+    API for interacting with Canvas LMS, enhanced to support Study Buddy functionalities such as course management,
+    module tracking, assignment monitoring, grade tracking, and calendar integration.
+  version: 1.1.0
+servers:
+  - url: https://maricopa.instructure.com/api/v1
+    description: Canvas LMS API server
+    variables:
+      domain:
+        default: maricopa.instructure.com
+        description: The domain of your Canvas instance
+security:
+  - OAuth2: []
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://canvas.instructure.com/login/oauth2/auth
+          tokenUrl: https://canvas.instructure.com/login/oauth2/token
+          scopes:
+            read: Grants read access to protected resources.
+            write: Grants write access to protected resources.
+  schemas:
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The ID of the course.
+        name:
+          type: string
+          description: The name of the course.
+        account_id:
+          type: integer
+          description: The ID of the account associated with the course.
+        enrollment_term_id:
+          type: integer
+          description: The ID of the term associated with the course.
+        start_at:
+          type: string
+          format: date-time
+          description: The start date of the course.
+        end_at:
+          type: string
+          format: date-time
+          description: The end date of the course.
+        course_code:
+          type: string
+          description: The course code.
+        state:
+          type: string
+          description: The current state of the course (e.g., "unpublished", "available").
+        is_public:
+          type: boolean
+          description: Whether the course is public.
+        syllabus_body:
+          type: string
+          description: The syllabus content of the course.
+        term:
+          type: object
+          description: The term associated with the course.
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            start_at:
+              type: string
+              format: date-time
+            end_at:
+              type: string
+              format: date-time
+    Module:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The ID of the module.
+        name:
+          type: string
+          description: The name of the module.
+        items_count:
+          type: integer
+          description: The number of items in the module.
+        state:
+          type: string
+          description: The state of the module (e.g., "active", "locked").
+    ModuleItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The ID of the module item.
+        title:
+          type: string
+          description: The title of the module item.
+        type:
+          type: string
+          description: The type of the module item (e.g., "Assignment", "File").
+        position:
+          type: integer
+          description: The position of the item within the module.
+        indent:
+          type: integer
+          description: The level of indentation of the item in the module.
+        completion_requirement:
+          type: object
+          description: The completion requirement for the item.
+          properties:
+            type:
+              type: string
+            min_score:
+              type: integer
+        content_id:
+          type: integer
+          description: The ID of the associated content item (e.g., assignment, file).
+        state:
+          type: string
+          description: The state of the item (e.g., "active", "locked").
+    Assignment:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The ID of the assignment.
+        name:
+          type: string
+          description: The name of the assignment.
+        due_at:
+          type: string
+          format: date-time
+          description: The due date and time of the assignment.
+        points_possible:
+          type: number
+          format: float
+          description: The maximum points possible for the assignment.
+        submission_types:
+          type: array
+          items:
+            type: string
+          description: The types of submissions accepted for the assignment.
+        grading_type:
+          type: string
+          description: The grading type of the assignment.
+    Grade:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The ID of the grade.
+        student_id:
+          type: integer
+          description: The ID of the student.
+        grade:
+          type: string
+          description: The grade received by the student.
+        score:
+          type: number
+          format: float
+          description: The numeric score received by the student.
+        submitted_at:
+          type: string
+          format: date-time
+          description: The date and time the assignment was submitted.
+    CalendarEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The ID of the calendar event.
+        title:
+          type: string
+          description: The title of the event.
+        description:
+          type: string
+          description: The description of the event.
+        start_at:
+          type: string
+          format: date-time
+          description: The start date and time of the event.
+        end_at:
+          type: string
+          format: date-time
+          description: The end date and time of the event.
+        all_day:
+          type: boolean
+          description: Whether the event is an all-day event.
+paths:
+  /courses:
+    get:
+      operationId: listYourCourses
+      summary: List your courses
+      description: Retrieves a paginated list of active courses for the current user.
+      parameters:
+        - name: enrollment_type
+          in: query
+          description: Filter by enrollment type (e.g., "teacher", "student").
+          schema:
+            type: string
+        - name: enrollment_role
+          in: query
+          description: Filter by role type. Requires admin permissions.
+          schema:
+            type: string
+        - name: enrollment_state
+          in: query
+          description: Filter by enrollment state (e.g., "active", "invited").
+          schema:
+            type: string
+        - name: exclude_blueprint_courses
+          in: query
+          description: Exclude Blueprint courses if true.
+          schema:
+            type: boolean
+        - name: include
+          in: query
+          description: Array of additional information to include (e.g., "term", "teachers").
+          schema:
+            type: array
+            items:
+              type: string
+        - name: per_page
+          in: query
+          description: The number of results to return per page.
+          schema:
+            type: integer
+          example: 10
+        - name: page
+          in: query
+          description: The page number to return.
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: A list of courses.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+        "400":
+          description: Bad request, possibly due to invalid query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+  /courses/{course_id}:
+    get:
+      operationId: getSingleCourse
+      summary: Get a single course
+      description: Retrieves the details of a specific course by its ID.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: include
+          in: query
+          description: Array of additional information to include (e.g., "term", "teachers").
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: A single course object.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        "400":
+          description: Bad request, possibly due to an invalid course ID or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Course not found, possibly due to an invalid course ID.
+  /courses/{course_id}/modules:
+    get:
+      operationId: listModules
+      summary: List modules in a course
+      description: Retrieves the list of modules for a given course in Canvas.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: include
+          in: query
+          description: Include additional information such as items in the response.
+          schema:
+            type: array
+            items:
+              type: string
+            example:
+              - items
+        - name: search_term
+          in: query
+          description: The partial title of the module to match and return.
+          schema:
+            type: string
+        - name: student_id
+          in: query
+          description: Return module completion information for the student with this ID.
+          schema:
+            type: integer
+        - name: per_page
+          in: query
+          description: The number of results to return per page.
+          schema:
+            type: integer
+          example: 10
+        - name: page
+          in: query
+          description: The page number to return.
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: A list of modules in the course.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Module"
+        "400":
+          description: Bad request, possibly due to an invalid course ID or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Course not found, possibly due to an invalid course ID.
+  /courses/{course_id}/modules/{module_id}/items:
+    get:
+      operationId: listModuleItems
+      summary: List items in a module
+      description: Retrieves the list of items within a specific module in a Canvas course.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: module_id
+          in: path
+          required: true
+          description: The ID of the module.
+          schema:
+            type: integer
+        - name: include
+          in: query
+          description: Include additional information in the response, such as content details.
+          schema:
+            type: array
+            items:
+              type: string
+            example:
+              - content_details
+        - name: student_id
+          in: query
+          description: Return completion information for the student with this ID.
+          schema:
+            type: integer
+        - name: per_page
+          in: query
+          description: The number of results to return per page.
+          schema:
+            type: integer
+          example: 10
+        - name: page
+          in: query
+          description: The page number to return.
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: A list of items in the module.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModuleItem"
+        "400":
+          description: Bad request, possibly due to an invalid module ID or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Module or course not found, possibly due to an invalid module or course ID.
+  /search/all_courses:
+    get:
+      operationId: searchCourses
+      summary: Search for courses
+      description: Searches for public courses in Canvas.
+      parameters:
+        - name: search
+          in: query
+          description: The search term to filter courses.
+          schema:
+            type: string
+        - name: public_only
+          in: query
+          description: If true, only returns public courses.
+          schema:
+            type: boolean
+        - name: open_enrollment_only
+          in: query
+          description: If true, only returns courses with open enrollment.
+          schema:
+            type: boolean
+        - name: enrollment_type
+          in: query
+          description: Filter by enrollment type (e.g., "teacher", "student").
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort the results by "asc" or "desc" order.
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        - name: per_page
+          in: query
+          description: The number of results to return per page.
+          schema:
+            type: integer
+          example: 10
+        - name: page
+          in: query
+          description: The page number to return.
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: A list of courses matching the search criteria.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+        "400":
+          description: Bad request, possibly due to invalid query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: No courses found matching the criteria.
+  /courses/{course_id}/assignments:
+    get:
+      operationId: listAssignments
+      summary: List assignments in a course
+      description: Retrieves a list of assignments for a specific course.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: include
+          in: query
+          description: Include additional information such as submission types.
+          schema:
+            type: array
+            items:
+              type: string
+            example:
+              - submission_types
+              - rubric
+        - name: override_assignment_dates
+          in: query
+          description: Whether to use overridden assignment dates.
+          schema:
+            type: boolean
+        - name: per_page
+          in: query
+          description: The number of results to return per page.
+          schema:
+            type: integer
+          example: 20
+        - name: page
+          in: query
+          description: The page number to return.
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: A list of assignments in the course.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+        "400":
+          description: Bad request, possibly due to an invalid course ID or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Course not found, possibly due to an invalid course ID.
+  /courses/{course_id}/grades:
+    get:
+      operationId: listGrades
+      summary: List grades in a course
+      description: Retrieves a list of grades for students in a specific course.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: student_ids
+          in: query
+          description: Comma-separated list of student IDs to filter grades.
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Include additional information such as grades by assignment.
+          schema:
+            type: array
+            items:
+              type: string
+            example:
+              - current_grade
+              - final_grade
+        - name: per_page
+          in: query
+          description: The number of results to return per page.
+          schema:
+            type: integer
+          example: 25
+        - name: page
+          in: query
+          description: The page number to return.
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: A list of grades in the course.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Grade"
+        "400":
+          description: Bad request, possibly due to an invalid course ID or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Course not found, possibly due to an invalid course ID.
+  /courses/{course_id}/calendar_events:
+    get:
+      operationId: listCalendarEvents
+      summary: List calendar events in a course
+      description: Retrieves a list of calendar events for a specific course.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: start_date
+          in: query
+          description: The start date to filter events.
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          description: The end date to filter events.
+          schema:
+            type: string
+            format: date-time
+        - name: all_events
+          in: query
+          description: Whether to include all events, not just calendar events.
+          schema:
+            type: boolean
+        - name: per_page
+          in: query
+          description: The number of results to return per page.
+          schema:
+            type: integer
+          example: 15
+        - name: page
+          in: query
+          description: The page number to return.
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: A list of calendar events in the course.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarEvent"
+        "400":
+          description: Bad request, possibly due to an invalid course ID or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Course not found, possibly due to an invalid course ID.
+  /courses/{course_id}/modules/{module_id}/items/{item_id}:
+    get:
+      operationId: getModuleItem
+      summary: Get a specific module item
+      description: Retrieves details of a specific item within a module.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: module_id
+          in: path
+          required: true
+          description: The ID of the module.
+          schema:
+            type: integer
+        - name: item_id
+          in: path
+          required: true
+          description: The ID of the module item.
+          schema:
+            type: integer
+        - name: include
+          in: query
+          description: Include additional information such as content details.
+          schema:
+            type: array
+            items:
+              type: string
+            example:
+              - content_details
+      responses:
+        "200":
+          description: A single module item object.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModuleItem"
+        "400":
+          description: Bad request, possibly due to invalid IDs or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Module or item not found, possibly due to invalid IDs.
+  /courses/{course_id}/assignments/{assignment_id}:
+    get:
+      operationId: getAssignment
+      summary: Get a single assignment
+      description: Retrieves the details of a specific assignment by its ID.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: assignment_id
+          in: path
+          required: true
+          description: The ID of the assignment.
+          schema:
+            type: integer
+        - name: include
+          in: query
+          description: Include additional information such as submission types and rubrics.
+          schema:
+            type: array
+            items:
+              type: string
+            example:
+              - submission_types
+              - rubric
+      responses:
+        "200":
+          description: A single assignment object.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+        "400":
+          description: Bad request, possibly due to invalid IDs or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Assignment not found, possibly due to an invalid assignment ID.
+  /courses/{course_id}/grades/{grade_id}:
+    get:
+      operationId: getGrade
+      summary: Get a single grade
+      description: Retrieves the details of a specific grade by its ID.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: grade_id
+          in: path
+          required: true
+          description: The ID of the grade.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: A single grade object.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Grade"
+        "400":
+          description: Bad request, possibly due to invalid IDs or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Grade not found, possibly due to an invalid grade ID.
+  /courses/{course_id}/calendar_events/{event_id}:
+    get:
+      operationId: getCalendarEvent
+      summary: Get a single calendar event
+      description: Retrieves the details of a specific calendar event by its ID.
+      parameters:
+        - name: course_id
+          in: path
+          required: true
+          description: The ID of the course.
+          schema:
+            type: integer
+        - name: event_id
+          in: path
+          required: true
+          description: The ID of the calendar event.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: A single calendar event object.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+        "400":
+          description: Bad request, possibly due to invalid IDs or query parameters.
+        "401":
+          description: Unauthorized, likely due to invalid authentication credentials.
+        "404":
+          description: Calendar event not found, possibly due to an invalid event ID.
